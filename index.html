@@ -148,6 +148,12 @@ input,textarea{font:inherit;color:inherit}
 .tipnote{font-size:11.5px;color:var(--dim2);line-height:1.7;margin:16px 3px 0}
 .warnbar{background:#fff6e6;border:1px solid #f3ddb3;color:#8a5a12;font-size:12px;line-height:1.6;
   border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.verline{font-size:11px;color:var(--dim2);margin:8px 3px 0;font-variant-numeric:tabular-nums}
+.updbar{position:fixed;top:0;left:0;right:0;z-index:70;max-width:520px;margin:0 auto;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  background:#1f2534;color:#fff;font-size:12.5px;line-height:1.4;
+  padding:calc(8px + env(safe-area-inset-top)) 12px 8px;box-shadow:0 6px 18px -12px #000}
+.updbar button{color:#a5b4fc;font-weight:800;text-decoration:underline;font-size:12.5px}
 
 /* 重要度标签 */
 .lvtag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:.2px;white-space:nowrap;vertical-align:middle}
@@ -334,6 +340,7 @@ input,textarea{font:inherit;color:inherit}
       </div>
       <input type="file" id="impFile" accept=".json,application/json" hidden>
       <div class="tipnote">单词存在<b>当前这个浏览器</b>里，不是存在文件里：换浏览器、换手机、清理浏览器数据都看不到原来的词。建议固定用同一个浏览器打卡，并定期点「导出备份」。</div>
+      <div class="verline" id="verLine"></div>
     </section>
 
   </main>
@@ -360,6 +367,11 @@ input,textarea{font:inherit;color:inherit}
 
 <div class="toast" id="toast"></div>
 
+<div class="updbar hidden" id="updBar">
+  <span>发现新版本 <b id="updVer"></b></span>
+  <button type="button" id="updGo">刷新</button>
+</div>
+
 <div class="sheet-mask" id="sheetMask">
   <div class="sheet" id="sheet">
     <div class="sheethead"><b>编辑生词</b><span id="edMeta"></span></div>
@@ -378,6 +390,7 @@ input,textarea{font:inherit;color:inherit}
 
 /* ================= 基础工具 ================= */
 var KEY = 'shengciben.v1';
+var APP_VER = '2026-11-06 01:50';
 var DAY = 86400000;
 var STEPS = [0, 1, 2, 4, 7, 15, 30, 60, 120, 240]; // 第 n 阶段的复习间隔（天）
 var MAXSTAGE = STEPS.length - 1;
@@ -1183,6 +1196,28 @@ applyScopeUI();
 renderReview();
 refreshCounts();
 if (migratedLevels) save();
+
+/* ================= 版本 / 更新检查 ================= */
+$('#verLine').textContent = '版本 ' + APP_VER + (location.protocol === 'file:' ? '（本地文件）' : '（网页版）');
+
+function checkUpdate(){
+  if (!/^https?:$/.test(location.protocol)) return;
+  fetch(location.pathname + '?t=' + Date.now(), { cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.text() : ''; })
+    .then(function(t){
+      var m = t.match(/var APP_VER = '([^']+)'/);
+      if (m && m[1] > APP_VER){
+        $('#updVer').textContent = m[1];
+        $('#updBar').classList.remove('hidden');
+      }
+    })
+    .catch(function(){});
+}
+
+$('#updGo').addEventListener('click', function(){
+  location.replace(location.pathname + '?v=' + Date.now());
+});
+setTimeout(checkUpdate, 800);
 
 })();
 </script>
