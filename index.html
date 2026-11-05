@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f5f8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="生词本">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<title>我的生词本</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%234f46e5'/%3E%3Ctext x='50' y='72' font-size='60' text-anchor='middle' fill='white' font-family='sans-serif'%3E%E8%AF%8D%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f4f5f8; --card:#ffffff; --line:#e5e7ef; --line2:#eef0f6;
+  --txt:#141821; --dim:#7b849b; --dim2:#a9b0c2;
+  --acc:#4f46e5; --acc-soft:#eef0ff;
+  --red:#c93a44; --red-soft:#fdeced;
+  --amber:#a86b17; --amber-soft:#fdf3e2;
+  --green:#0f7a58; --green-soft:#e5f7f0;
+  --sh:0 10px 28px -20px rgba(24,32,64,.55);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;
+  touch-action:manipulation;
+}
+body.lock{overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+input,textarea{font:inherit;color:inherit}
+.hidden{display:none!important}
+.muted{color:var(--dim)}
+
+#app{position:relative;max-width:520px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--bg)}
+@media(min-width:560px){#app{box-shadow:0 0 0 1px var(--line)}}
+#main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(88px + env(safe-area-inset-bottom))}
+
+.view{display:none}
+.view.active{display:block;animation:fade .18s ease both}
+#view-review.active{display:flex;flex-direction:column;min-height:calc(100dvh - 112px)}
+#reviewCard{margin:0}
+#reviewDone{margin:auto 0}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.vhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:2px 2px 12px}
+.vhead h2{margin:0;font-size:21px;font-weight:800;letter-spacing:.2px}
+.vsub{font-size:12px;color:var(--dim)}
+
+/* ---------- 通用控件 ---------- */
+.btn{display:block;width:100%;padding:14px;border-radius:14px;font-size:16px;font-weight:700;
+  background:var(--card);border:1px solid var(--line);box-shadow:var(--sh);transition:transform .08s,filter .15s}
+.btn:active{transform:scale(.985);filter:brightness(.97)}
+.btn.primary{background:linear-gradient(180deg,#6058f0,#4f46e5);border-color:#4f46e5;color:#fff;box-shadow:0 10px 22px -12px #4f46e5}
+.btn.danger{background:var(--red-soft);border-color:var(--red-soft);color:var(--red)}
+.btn.ghost{background:transparent;border-color:transparent;box-shadow:none;color:var(--dim);font-weight:600;font-size:14.5px;padding:11px}
+.field{display:block;margin-bottom:10px}
+.field>span{display:block;font-size:12px;color:var(--dim);margin:0 0 6px 3px;line-height:1.4}
+.field input,.field textarea{width:100%;padding:13px 14px;border-radius:13px;border:1px solid var(--line);
+  background:#fbfbfd;font-size:17px;outline:none;transition:border-color .15s,background .15s;-webkit-appearance:none}
+.field textarea{font-size:15px;line-height:1.6;resize:vertical;min-height:110px;-webkit-user-select:text;user-select:text}
+.field input:focus,.field textarea:focus{border-color:#b9baff;background:#fff;box-shadow:0 0 0 3px var(--acc-soft)}
+.card-box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--sh)}
+.linkbtn{display:block;width:100%;padding:12px;margin:10px 0;font-size:14px;font-weight:600;color:var(--acc)}
+.hint{font-size:13px;color:var(--dim);margin:2px 3px 0;min-height:18px;line-height:1.5}
+.hint.err{color:var(--red)}
+
+/* ---------- 复习 ---------- */
+.sessbar{margin-bottom:10px}
+.sessinfo{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:6px}
+.progress{height:4px;background:var(--line2);border-radius:2px;overflow:hidden}
+.progress>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#818cf8,#4f46e5);border-radius:2px;transition:width .3s}
+
+.cardwrap{position:relative;isolation:isolate;perspective:1400px;height:clamp(240px,48vh,360px);margin-bottom:14px}
+.cardshadow{position:absolute;inset:0;z-index:0;border-radius:22px;box-shadow:0 16px 30px -22px rgba(20,30,70,.55)}
+.cardwrap.out{animation:cardout .17s ease forwards}
+@keyframes cardout{to{opacity:0;transform:translateX(-18px) scale(.97)}}
+.cardwrap.in{animation:cardin .22s ease both}
+@keyframes cardin{from{opacity:0;transform:translateX(18px) scale(.98)}to{opacity:1;transform:none}}
+.card{position:relative;z-index:1;width:100%;height:100%;transition:transform .48s cubic-bezier(.35,.1,.2,1);transform-style:preserve-3d;cursor:pointer;user-select:none;-webkit-user-select:none}
+.card.flipped{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--card);border:1px solid var(--line);border-radius:22px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 22px;text-align:center;overflow:auto}
+.face.back{transform:rotateY(180deg);background:linear-gradient(180deg,#fff,#fbfaff)}
+.en{font-size:clamp(26px,8vw,38px);font-weight:700;letter-spacing:-.4px;line-height:1.25;word-break:break-word}
+.en.sm{font-size:clamp(19px,5.6vw,27px)}
+.hint2{margin-top:16px;font-size:12.5px;color:var(--dim2)}
+.zh{font-size:clamp(18px,5.2vw,24px);font-weight:600;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.en-sm{margin-top:18px;font-size:14px;color:var(--dim);letter-spacing:.2px}
+
+.grades{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;opacity:0;transform:translateY(8px);
+  pointer-events:none;transition:opacity .2s,transform .2s}
+.grades.show{opacity:1;transform:none;pointer-events:auto}
+.g{padding:11px 4px 9px;border-radius:14px;border:1px solid transparent;display:flex;flex-direction:column;align-items:center;gap:3px;transition:transform .08s}
+.g:active{transform:scale(.96)}
+.g b{font-size:15px;font-weight:800}
+.g span{font-size:10px;opacity:.75}
+.g.again{background:var(--red-soft);color:var(--red);border-color:#fadadd}
+.g.hard{background:var(--amber-soft);color:var(--amber);border-color:#f6e6c8}
+.g.good{background:var(--green-soft);color:var(--green);border-color:#d3efe4}
+.cardmeta{margin-top:12px;text-align:center;font-size:11.5px;color:var(--dim2)}
+
+.done{text-align:center;padding:34px 18px 10px}
+.doneicon{width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:var(--green-soft);color:var(--green);
+  display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700}
+.done h3{margin:0 0 8px;font-size:18px}
+.done p{margin:0 0 20px;font-size:13px;color:var(--dim);line-height:1.6}
+
+/* ---------- 生词本 ---------- */
+.searchrow{margin-bottom:10px}
+.searchrow input{width:100%;padding:12px 14px;border-radius:13px;border:1px solid var(--line);background:var(--card);
+  font-size:15px;outline:none;-webkit-appearance:none}
+.searchrow input:focus{border-color:#b9baff;box-shadow:0 0 0 3px var(--acc-soft)}
+.listmeta{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--dim);margin:0 3px 8px}
+.listmeta select{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:5px 8px;font-size:12px;color:var(--dim);outline:none}
+.cardlist{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--sh)}
+.wrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line2);background:none}
+.wrow:last-child{border-bottom:0}
+.wrow:active{background:#f8f9fc}
+.wmain{flex:1;min-width:0}
+.wen{font-size:16px;font-weight:600;word-break:break-word;line-height:1.35}
+.wzh{font-size:12.5px;color:var(--dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wmeta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.chip{font-size:10.5px;padding:2px 7px;border-radius:999px;background:var(--line2);color:var(--dim);white-space:nowrap}
+.chip.red{background:var(--red-soft);color:var(--red)}
+.chip.due{background:var(--acc-soft);color:var(--acc)}
+.empty2{padding:38px 16px;text-align:center;font-size:13px;color:var(--dim2)}
+
+/* ---------- 统计 ---------- */
+.grid2{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:var(--sh)}
+.stat b{display:block;font-size:20px;font-weight:800;color:var(--txt);line-height:1.3;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--dim)}
+.sec{font-size:13px;font-weight:700;color:var(--dim);margin:20px 3px 9px;letter-spacing:.4px}
+.chart{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:14px 10px 10px;box-shadow:var(--sh)}
+.cbar{display:flex;flex-direction:column;align-items:center;gap:4px}
+.cbar-in{width:100%;height:76px;display:flex;align-items:flex-end;background:var(--line2);border-radius:8px;overflow:hidden}
+.cbar-in>i{display:block;width:100%;background:linear-gradient(180deg,#8b8df5,#4f46e5);border-radius:8px;transition:height .35s}
+.cbar-in>i.zero{background:#dfe3ec}
+.cnum{font-size:10.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.cday{font-size:10px;color:var(--dim2)}
+.iorow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+.iorow .btn{font-size:14px;padding:12px}
+.tipnote{font-size:11.5px;color:var(--dim2);line-height:1.7;margin:16px 3px 0}
+.warnbar{background:#fff6e6;border:1px solid #f3ddb3;color:#8a5a12;font-size:12px;line-height:1.6;
+  border-radius:12px;padding:10px 12px;margin-bottom:12px}
+
+/* 重要度标签 */
+.lvtag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:.2px;white-space:nowrap;vertical-align:middle}
+.lv1{background:#fee9dd;color:#b4470f}
+.lv2{background:#eef0ff;color:#4f46e5}
+.lv3{background:#f1f3f7;color:#67708a}
+.lv4{background:#f7f8fa;color:#9aa1b2;box-shadow:inset 0 0 0 1px #e6e8ef}
+.cardlv{position:absolute;top:12px;left:14px;z-index:2}
+.scoperow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 10px}
+.scoperow>span{font-size:11.5px;color:var(--dim2)}
+.seg{display:inline-flex;background:#eceef5;border-radius:9px;padding:2px;gap:2px}
+.seg button{font-size:11.5px;font-weight:600;color:var(--dim);padding:4px 10px;border-radius:7px}
+.seg button.on{background:#fff;color:var(--acc);box-shadow:0 1px 3px rgba(20,30,60,.12)}
+.flabel{display:flex;align-items:center;gap:7px;margin:0 0 6px 3px}
+.flabel>span{font-size:12px;color:var(--dim)}
+.lvrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.lvrow .lvtag{font-size:11px;padding:4px 9px}
+.wzh .lvtag{margin-right:5px;padding:1px 6px;font-size:10px}
+
+/* ---------- 底部导航 ---------- */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:520px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+  background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 5px;border-radius:12px;color:#98a0b5;font-size:10.5px;font-weight:600}
+.tab svg{width:22px;height:22px;display:block}
+.tab.active{color:var(--acc);background:var(--acc-soft)}
+.tab .dot{position:absolute;top:-1px;left:calc(50% + 9px);min-width:16px;height:16px;padding:0 4px;border-radius:9px;
+  background:#ef4444;color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;box-shadow:0 0 0 2px #fff}
+
+/* ---------- 弹层 / 提示 ---------- */
+.sheet-mask{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;background:rgba(16,20,32,.42)}
+.sheet-mask.on{display:flex;animation:fade .15s ease both}
+.sheet{width:100%;max-width:520px;background:var(--card);border-radius:22px 22px 0 0;
+  padding:16px 16px calc(14px + env(safe-area-inset-bottom));animation:up .24s cubic-bezier(.2,.8,.3,1) both;
+  max-height:88vh;overflow-y:auto}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.sheethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sheethead b{font-size:16px}
+.sheethead span{font-size:11.5px;color:var(--dim2)}
+.sheet .btn{margin-top:8px}
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));z-index:90;
+  transform:translate(-50%,10px);background:#1f2534;color:#fff;font-size:13px;padding:9px 16px;border-radius:999px;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:88vw;text-align:center;line-height:1.4}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <main id="main">
+
+    <!-- ================= 复习 ================= -->
+    <section class="view active" id="view-review">
+      <div class="vhead">
+        <h2>复习</h2>
+        <div class="vsub" id="reviewSub">今日新增 0 · 待复习 0</div>
+      </div>
+
+      <div class="scoperow">
+        <span id="scopeNote">超纲词、词表外的词会排在最后</span>
+        <div class="seg" id="scopeSeg">
+          <button data-scope="all">全部</button>
+          <button data-scope="core">只看重点</button>
+        </div>
+      </div>
+
+      <div id="reviewDone" class="done hidden">
+        <div class="doneicon" id="doneIcon">✓</div>
+        <h3 id="doneTitle">今天没有要复习的词了</h3>
+        <p id="doneSub">新增的词会马上进入复习</p>
+        <button class="btn" id="goAdd">添加今天的生词</button>
+      </div>
+
+      <div id="reviewCard" class="hidden">
+        <div class="sessbar">
+          <div class="sessinfo"><span id="rcLeft">剩余 0</span><span id="rcDone">0 / 0</span></div>
+          <div class="progress"><i id="progFill"></i></div>
+        </div>
+
+        <div class="cardwrap" id="cardwrap">
+          <div class="cardshadow"></div>
+          <div class="card" id="card">
+            <div class="face front">
+              <div class="cardlv"><i class="lvtag lv1" id="cLv">必考词</i></div>
+              <div class="en" id="cEn">abandon</div>
+              <div class="hint2">轻点卡片看释义</div>
+            </div>
+            <div class="face back">
+              <div class="zh" id="cZh">放弃</div>
+              <div class="en-sm" id="cEn2">abandon</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grades" id="grades">
+          <button class="g again" data-g="again"><b>不认识</b><span>10 分钟后再来</span></button>
+          <button class="g hard" data-g="hard"><b>模糊</b><span>缩短间隔</span></button>
+          <button class="g good" data-g="good"><b>认识</b><span>延长间隔</span></button>
+        </div>
+        <div class="cardmeta" id="cardMeta"></div>
+      </div>
+    </section>
+
+    <!-- ================= 添加 ================= -->
+    <section class="view" id="view-add">
+      <div class="vhead">
+        <h2>添加生词</h2>
+        <div class="vsub">今日新增 <b id="addToday">0</b> 个</div>
+      </div>
+
+      <form id="addForm" class="card-box" autocomplete="off">
+        <label class="field">
+          <span class="flabel"><span>英文</span><i class="lvtag hidden" id="liveLv"></i></span>
+          <input id="inEn" type="text" placeholder="abandon" autocapitalize="off" autocorrect="off"
+                 autocomplete="off" spellcheck="false" enterkeyhint="next">
+        </label>
+        <label class="field">
+          <span>释义</span>
+          <input id="inZh" type="text" placeholder="放弃；抛弃" enterkeyhint="done">
+        </label>
+        <button class="btn primary" type="submit">添加</button>
+      </form>
+      <div class="hint" id="addHint"></div>
+
+      <button class="linkbtn" id="batchToggle">批量粘贴多个词</button>
+      <div id="batchBox" class="card-box hidden">
+        <label class="field">
+          <span>每行一个，英文在前、释义在后（空格 / Tab / 逗号分隔都行）</span>
+          <textarea id="batchText" placeholder="abandon 放弃&#10;take into account 考虑到&#10;1. elaborate 精心制作的；详尽阐述"></textarea>
+        </label>
+        <button class="btn" id="batchImport" type="button">导入</button>
+      </div>
+
+      <div class="tipnote">新增的词会立即进入复习队列；连续添加时英文框会自动聚焦。</div>
+    </section>
+
+    <!-- ================= 生词本 ================= -->
+    <section class="view" id="view-list">
+      <div class="vhead">
+        <h2>生词本</h2>
+        <div class="vsub" id="listTop">0 个词</div>
+      </div>
+      <div class="searchrow"><input id="q" type="search" placeholder="搜索英文或释义" autocomplete="off"></div>
+      <div class="listmeta">
+        <span id="listCount">0 个词</span>
+        <select id="sortSel">
+          <option value="new">最新添加</option>
+          <option value="level">重要度</option>
+          <option value="due">最快到期</option>
+          <option value="wrong">错误最多</option>
+          <option value="az">A → Z</option>
+        </select>
+      </div>
+      <div class="cardlist" id="wordList"></div>
+    </section>
+
+    <!-- ================= 统计 ================= -->
+    <section class="view" id="view-stats">
+      <div class="vhead">
+        <h2>错误统计</h2>
+        <div class="vsub">按遗忘曲线记录</div>
+      </div>
+
+      <div class="grid2">
+        <div class="stat"><b id="stTotal">0</b><span>总词数</span></div>
+        <div class="stat"><b id="stDue">0</b><span>待复习</span></div>
+        <div class="stat"><b id="stToday">0</b><span>今日新增</span></div>
+        <div class="stat"><b id="stReps">0</b><span>累计复习</span></div>
+        <div class="stat"><b id="stWrong">0</b><span>累计错误</span></div>
+        <div class="stat"><b id="stAcc">—</b><span>正确率</span></div>
+      </div>
+      <div class="lvrow" id="lvRow"></div>
+
+      <div class="sec">近 7 天复习次数</div>
+      <div class="chart" id="chart"></div>
+
+      <div class="sec">错得最多的词</div>
+      <div class="cardlist" id="wrongList"></div>
+
+      <div class="iorow">
+        <button class="btn" id="exp" type="button">导出备份</button>
+        <button class="btn" id="imp" type="button">导入备份</button>
+      </div>
+      <input type="file" id="impFile" accept=".json,application/json" hidden>
+      <div class="tipnote">单词存在<b>当前这个浏览器</b>里，不是存在文件里：换浏览器、换手机、清理浏览器数据都看不到原来的词。建议固定用同一个浏览器打卡，并定期点「导出备份」。</div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-view="review">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="13" height="16" rx="3"/><path d="M16.5 21H7a3 3 0 0 1-3-3V7"/></svg>
+      <span>复习</span><i class="dot hidden" id="tabBadge">0</i>
+    </button>
+    <button class="tab" data-view="add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+      <span>添加</span>
+    </button>
+    <button class="tab" data-view="list">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v18H6.5A2.5 2.5 0 0 1 4 18.5z"/><path d="M8 7.5h8M8 11.5h6"/></svg>
+      <span>生词本</span>
+    </button>
+    <button class="tab" data-view="stats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 20v-6M12 20V7M17 20v-9"/></svg>
+      <span>统计</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="sheet-mask" id="sheetMask">
+  <div class="sheet" id="sheet">
+    <div class="sheethead"><b>编辑生词</b><span id="edMeta"></span></div>
+    <label class="field"><span>英文</span><input id="edEn" type="text" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+    <label class="field"><span>释义</span><textarea id="edZh" rows="3"></textarea></label>
+    <button class="btn primary" id="edSave" type="button">保存</button>
+    <button class="btn" id="edReset" type="button">重置复习进度</button>
+    <button class="btn danger" id="edDel" type="button">删除这个词</button>
+    <button class="btn ghost" id="edClose" type="button">取消</button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ================= 基础工具 ================= */
+var KEY = 'shengciben.v1';
+var DAY = 86400000;
+var STEPS = [0, 1, 2, 4, 7, 15, 30, 60, 120, 240]; // 第 n 阶段的复习间隔（天）
+var MAXSTAGE = STEPS.length - 1;
+
+function $(s, r){ return (r || document).querySelector(s); }
+function $$(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function pad2(n){ return n < 10 ? '0' + n : '' + n; }
+function dayKey(ts){
+  var d = ts == null ? new Date() : new Date(ts);
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+}
+function uid(){
+  return 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+/* ================= 重要度分档（来自红宝书 必考词/基础词/超纲词） ================= */
+var LVL={"1": "baoshu abnormal bang bear deliver idiom lamb tame tap transplant viewpoint magnify objective radiant radiate radical himself objection obligation oblige obscure observation observe obsession obsolete obtain ideal identical identification identify identity ideology journal journalist journey judge obvious degree judicial jurisdiction jury justice justify label lag largely lateral latter law lawsuit magnitude magnificent maintenance major majority make qualification qualify qualitative quality safeguard safety savage save saving scale scene theoretical theory therapy pace panel panorama prove provide provided scenery elaborate elegant media mediate meditation medium abolish abroad absence absent absolute absorb elementary eliminate abstract ban bar bare barely bargain capable capacity capital captive capture career careful case freedom cast casual casualty catch category cater cause caution cautious cease celebrate celebrity ceremony certain certainty certificate certify decline decrease decree dedicate deduce deduct deem fashion fashionable sit site situate situation skeleton sketch elicit elite embed embody embryo thirst thorough though thought thoughtful threat threaten up-to-date update upgrade upset ventilate venture inaugurate incentive incidence incident incidentally incline widespread wit witness academic academy accelerate accept acceptance access accessory begin beginning behalf behave belief believe belong beneficial benefit benevolent benign challenge chance change channel character characteristic defend define definite definition defy delay deliberate delicate delivery fiction field fierce fight figure financial finding finite firm global globe abandon ability able background balance base basement basic basis calculate call calm candidate data database date deal dealer debate decade decide decision decisive decorate economic economics economy educate education effect effective efficiency efficient effort fabric fabricate face facet factor fade fail failure fair fairly fall fan fancy fascinate gamble gap gene general habit habitat hamper handicap shield shift shoulder show shower generate generation generator generous genius gift genre giant gigantic give happen harm harmony harsh ignorance ignorant ignore illness illusion illustrate illustration image imaginary imagination imaginative imagine imitate imitation lead leadership leading legal legislation legitimate leisure level lever levy manage management mandate manifest science later manipulate manner margin marginal mass massacre massive occupation occupy occur occurrence offend offer offset offspring paragraph parallel part trip partial participant participate particle particular partly partner passion passive quest questionnaire quick quit quote schedule scheme scientific scientist span spare patch patent pattern pay scope payment peculiar peer per perceive percentage perfect rail raise master masterpiece mate material mathematical mature rally random range rank writers maximum mean meaning means meantime meanwhile measure opening opera operate operation operational opinion opportunity oppose opposite oppress score scorn secure see seek seem seemingly thrift thrill thrive through throughout title urban urge urgent utter wonder worship church critics worth worthwhile worthy write writer take talent target taste tow technical technician technique teenager temper temperature temporal temporary tempt temptation tend tendency tentative term testify track tradition ultimate underlie underline understand understanding uneasy unemployment unexpected unify union unique universal universe unlike unlikely unusual vague vain valid valuable value vanish variable variance variation variety various vary vast wage wander want way weak wear weary weigh weight weird welfare whirl key knit whisper yield youth zigzag zone zoom aggravate aggregate aggressive brief browse supermarket agitate agreeable aid alarm alien alienate allocate allow alter alternate comparable comparative compare comparison compel compensate compete competent competition competitive compile complain complaint complement complete complex complicate complicated compliment comply differ difference diffuse emphasis employ employee employer enable encounter encourage end endorse indicate indication indicative outrage outset outside outward special specialist species specific specification specify speculate acclaim accommodate accompany accomplish time account bias bid bill billion birth charge charm chase democracy democratic demographic demonstrate denial denote deny department depend lake dependent deposit depress emerge emergency eminent emotion fear fearful feature federal federation feed feedback feeling fertile goal goods govern governor gradual graduate grand grant heal health healthy heap hesitate highlight highly immediate immense immerse immigrant imminent immune likelihood likely likewise liquid self selfish choke circumstance cite acquire border bore born bother claim clear acquisition act action activate active activity actual acute despise despite energetic energy enforce engage engagement fold folk follow following force fore foresee forge grasp grim grip gross ground guarantee guard include inclusive income incorporate increase incredible incur link list village literally literary literature memorial memory mental mention mentor other otherwise outcome signature significance significant signify similar simple simplicity simplify simply slack add addict addition additional adequate adjust adapt admire admission admit adopt adult brace brain branch brand toss total touch tough treat treaty click client cling close closet code personal trend vice vicious victim form formal format formation former formidable formula formulate personality personnel fortunate fortune guidance guide guideline guild guilt guilty recognition recommend recover recovery recruit sell send senior smart smell soak soar sociable detach detail detain social socialism society sociology soluble solution solve shade shadow sort soul sound sour advance advanced advantage advice advisable advise advocate affair affect source affection affiliate affirm afford breach break breakdown breed brevity coincide collapse colleague collect collection collective collide column combat combine command commend comment commerce commercial commission commit committee commodity common communicate communication communism community detect deter deteriorate develop device devise ensure entail indeed independence independent index mere merely plausible plea plead plot policy polite political politician politics poll ponder beam become derive sth describe description deserve design designate desirable desire flaw flexible fling flourish grow grown-up growth hinder hint hitherto impact impair impart implement implication implicit imply import importance important impose impression impressive improve impulse limit limitation limited origin original originate petition phase phenomenon philosopher philosophy phrase physical physician corporate corporation reason reasonable recent servant service set setback setting settle settlement several severe shape share sharp shelter sophisticated sovereign sow toll tone topic performance period perish optimistic optimum option optional organ organic organism perpetual perplex perspective pessimistic enhance enlarge enlighten rake rare rarely rate ratio rational reach react realistic reality select selection sensation sense sensible sensitive separate sequence serial series serious together token accumulate accuracy accurate accuse achieve acknowledge cheer tolerance tolerant tolerate board boast bonus boom building chemical cherish chip choice choose lodging boost verbal verdict verify verse version vessel holy horizon horizontal ingenious initial initiate initiative local locality locate location neglect negligible prescribe prescription presence present preserve preside pressure prestige presumably presume prevent previous prey reliable reliance religion religious rely straightforward strain strategy strength strengthen strenuous transaction transfer architect architecture archive area arena argue arise arouse array transform transient translation consequence consequently conservation visible vision visual vital vivid void volume consider considerable considerate consume consumption dispute dissolve exchange exclude confidence confirm conflict mislead apparent appeal confident confidential configuration trail training trait violence violent virtual virtue ways appear appearance appliance applicable application apply appreciate discriminate discuss disease escape especially essay essence essential establish estimate ethic ethnic evaluate industrial industry inevitable miserable misery mix mixture necessary necessitate necessity negative agreement outer outlet outline outlook output poverty power practical practice practise practitioner preach precede precaution precedent preceding precious precise precision stress stretch remain remainder remains remote removal remove contemporary contempt content remedy remember remind render contend context contract contrary contrast politely company diverse diversion divert divide dividend division document execute executive exemplify exert exhaust exist existence exotic moral morality moreover mostly prior priority privacy privilege prudent submit subordinate subscribe subsequent substance substantial substitute amend amount ample amuse associate association subtle infer inference stick stimulate stipulate approach appropriate approval approve inferior influence influential inform information conform confront confuse confusion connect conscious continual continue continuous dismiss disorder disperse displace display distance distort distract distribute evolution evolve exaggerate examine mock mode model moderate modern modest modify predecessor predict preface preferable preference prejudice preliminary premier premium preparation reflect reject rejoice overlook overseas relate relation relationship relative relativity relevant stance stand standard standpoint startle starve state statement statesman statistics statue status statute stay steady steer stem step stern anonymous answer anticipate anxiety anxious apart assassinate assault assemble assembly assert component compose composition comprehend comprehension comprehensive condemn condense condition conduct conductor disable disappear disappoint discipline disclose discover discovery hoist hold foot holder however huddle narrative narrow nasty nation national nationality native natural nature overall overcome overlap portion possibility possible potential pour beauty consistent constant constituent constitute constitution constrain construct distinct distinction distinguish fruitful frustrate fulfifulfill function enterprise entertain entertainment environment evidence evident evil fund fundamental monopoly monotonous mood stock storage store stride strike transmission transport doctor me position primary primitive striking string structure accident duties liability liable liberal liberate principal principle psychiatry psychology anchor anguish annoy annual innocent innovation months issue amateur amaze ambiguous ambition ambitious bubble dilute dim diminish possession build business compress comprise compromise conceive concentrate concept conception concern concise conclude conclusion concrete concurrent confer conference confess epic epidemic episode epoch indifferent indignant indignation indispensable individual mess message messenger method militant military mind order least redeem reduce reduction refer reference spoil sponsor subject subjective spread spur spy stability stable staff stage trivial try tumble turbulent turn twist author authority auxiliary avail turnover type typical voluntary volunteer vote vulgar vulnerable available critic critical criticism crucial culminate culprit cultivate culture dual dubious work due durable duration duty dynamic extinct extinguish introduce introduction invest investment investigate mutual mystery myth noble norm normal note notion public publication publicity publish result resultant resume reveal revelation revenge revenue supply support suppose logic logical supplement suppress supreme system systematic mountains refresh refute research resent reguest regular regulate regulation replace reply report reporter reputation require assess assimilate assist assistance assistant assume assumption contribute contribution controversial controversy convene convention converge convey domain domestic dominant dominate doom double doubt probe procedure proceed proceeding process procession proclaim produce expand expansion expect expectation experience product production productive productivity profession professional experiment expert expertise expire instinct institute institution insurance insure integral integrate integrity curiosity curious currency current cut average avoid awake award aware awkward cumulative extravagant extreme invisible invoke item overwhelm purchase pursue pursuit puzzle reverse review revive reward rich rise years mountain risk rival role roll root route row rule ruler surname surpass surplus surprise survey survival survive susceptible suspect suspend suspicion suspicious sustain swarm swear swell switch profit profitable profound project year progressive prohibit prolong prominent promising prompt proof reservation reserve resilient resist resistance resistant resort resource respect respective respond response responsibility responsible succeed success succession successive successor suck sue suffer suffice sufficient suggest suicide assurance assure suit suitable super superb superficial superfluous superior superiority supervise trigger triumph astonish atmosphere council counsel drama dramatic exploit explore intellectual intelligence intelligent point polish propel proper property proportion proposal proposition prospect prospective protocol proximate restore restrain attach attack attain attempt attend attention attitude restraint restrict court courtesy cover create creative credit crisis drive season drug export expose exposure express expression extend extension extensive extent human humanity intend intense intensity intensive intention interact intercourse interest interior internal international interpret loss low lower lucrative nerve nervous nevertheless", "2": "pipe pistol pit pitch beat lay layer layman layout marathon marble march plagiarism plague planet plant plantation marine marital mark married marxist mask naval navigation navy nearby nearly neat necklace needle queer query queue quota recall recollect reconcile recreation rectify recur recycle zinb redundant reed sheer sheet shepherd shrewd shrink shut shutter shuttle shy theft thermal thermometer thesis thick thigh thorn thousand via viable vicinity video violate shaft shake shallow shame shampoo shatter shave shear shed terrible terrific terrify territory terror textile texture wash waste ahead air-conditioning aircraft aisle alert algorithm align alike alive cheat chest chew chief watch brother childhood chill chorus chronic chunk delegate delete delicious delight elect pinch pint electric electrical electrician elevate elevator eligible eloquent embark emigrate emit empathy empire empirical empty fee feeble grief grieve grin grind office officer official all allege allegiance behind being alleviate alliance allowance alloy ally alone along alongside alphabet denounce dense density fellow fellowship female feminine fence ferry fetch feudal fever heave heaven heavy indoor induce indulge kin kindness king kingdom kit match may mayor nest net network neutral new omit opaque opt optical plaster plastic plate plateau platform play circle circuit circular circulate citizen civil refine refuge refugee refund refusal refuse win goat gold golden grab grace graceful gracious world chain chair chamber champagne champion chancellor chaos chapter chat charity chart charter deck declaration declare deed default defeat defect defer deficiency deficit degenerate either eject elapse elastic elbow feasible feast feat glide gloomy glorious glory glue headline headquarters hearing heart heat member membership menace mend persecute persevere persist persuade persuasion pest petrol petroleum petty pharmacy phone pile pilgrim pill pillar pilot quarrel quart quarter slip slipper slippery slope accent beard bearing rap slot slum slump sly smash smog smooth smuggle rape rapid rash raw ray reader readily reading realm reap rear amplify analogy bend beside rehearse analysis inertia infant infect infinite inflation inflict infrared infrastructure knee kneel knot knowledge leaf leaflet league leak lean lease leather mechanic mechanical mechanism nickname nightmare nominal nominate pleasure pledge plentiful pneumonia pocket poisonous regard regarding regardless regime register reign rein reinforce simulate simultaneous sincere single singular junction jungle junior siren thoughts thumb thunder tick ticket wealth wealthy weapon weave web wedge junk juvenile unload upper upright upward skate ski skill skilled skim skip skull skyscraper climate climax climb clip slap slaughter sleeve slender slide slight slim cloak clockwise clone descend descendant descent desert endow endurance endure graph graphic grateful gratitude grave gravity graze grease inhabitant inhale inherent inherit inhibit medal medical medicine medieval meet melody melt file fill plight plug plumber plunge plural plus film filter relax relay relief relieve relish reluctant treasure tremble trench bold bolster bolt bomb bond bone usage useful utmost sick side sideways sight sightseeing crowd silent silicon silly silver thread threshold throne thrust unfold uniform unit unite unity violet virgin virus vocal vocation volatile volcano voyage waterfall waterproof wave wax although altitude altogether ambassador amiable belly beloved below belt bench clap clarify clarity clash clasp class classic classical classification classify clause depart departure depict deplete deplore deploy depth deputy enclose enclosure gorgeous gossip gown grade grain hedge heel height heighten heir helicopter hell helmet helpful hemisphere hence henceforth herald herb herd heritage sail sailor saint sake salad salary salute salvation accord accordance ache acid bald ballet ballot band bandage bankrupt banner banquet barbecue bark barn barrel barren barrier camel camp campus can war warehouse cancel cancer cape captain carbohydrate carbon cardinal cargo carriage carrier carrot carve eccentric asked eccentricity echo ecology edge faint faith faithful gentle gently genuine geography geology geometry germ gesture ghost majesty hurricane male malignant passage passerby passport pastime pat path pathetic patience patriotic patrol patron pause pave daily dance dash daunting dawn daylight pavement adhere adjacent battery bay adore advent adventure adverse advertise ceiling cell cement censorship census cent central century cereal debt debut decay deceit deceive decent ego fare farewell farther fast fatal fate fatigue fault faulty fax giggle glacier glance glare glimpse glitter glow harvest haste hasty hatch hatred haul hawk hay hazard jog joint jolly kid kidnap kidney kill late lately latent latitude laughter likes york launch laundry reckless reckon reclaim peaceful scold tear tease tedious telegraph tell undo harassment hard harden hardly peak pearl pedal undoubtedly hardship hardware hero heroic heroin heroine impatient imperative imperial impetus lane lantern lap lapse laser lash fro mankind manual manufacture obstacle obstruct obstruction occasion occasional ppo scout scrap scrape scratch scream screen sppo script sculpture seam second secondary secretary section sector segment segregate seize veil vein velocity verge versatile versus vertical galaxy gallery peel peep penalty penetrate peninsula penny pension people perfume life permanent permeate permission permit quantify quantitative quantity race racial rack racket radio radioactive radius rag haircut rage raid semester semiconductor seminar senate senator sentence session shine shipment shiver shock shoot shortage shortcoming shorthand shot shove temple tempo tenant tender tense tension then thereafter thereby therefore vest veteran aerial affluent walk ward wardrobe warfare warmth warn warrant warranty against age blank coach coalition coarse cognitive inject injure injury ink inland blanket light lightning bachelor backward bacteria bad bait bake university abdomen aboard abound above abrupt absurd abundant abuse badge badly badminton baggage bail cab cabinet cable calendar calorie damage damn damp eager ear earnest earth ease east ebb fable fabulous facilitate facility faculty gang garage garbage gas gasp gauge gay gaze gear gender hail hall halt hand handbook handful ham hands handy hang ice idle if ignite illegal skilfully child illuminate jam jargon jaw jealous jet jewel keen nail naive naked namely nap naughty keyboard lace lack lame machine machinery mad madam magic magnet questioning magnetic maiden main oar oath obedience obedient obesity obey pack package pact pad paddle painful paint pair pale palm pamphlet panic pant paper paperback parachute parade paradigm paradise paradox parameter parasite parcel pardon parliament sack sacred sacrifice saddle sample sanction sandwich sane sarcastic satellite ugly ultraviolet umbrella unanimous uncover vacant vacation vaccine vacuum valve waist wake agency agenda agony waken x-ray yard yawn yearly yell yet zeal zero zip acquaintance across batch bath bathe sb satire satisfaction satisfactory satisfy saturate sauce saucer sausage saw scan scandal scar scarce scarcely scare scarf scatter scenario scent scholar scholarship school tablet taboo tackle tactic tag tale tangible tangle tank tanker tape tariff tax cash cashier catastrophe dead deadline undergraduate underground undermine underneath van vanity vegetarian vegetation vehicle deadly deaf dean edible edit edition editor editorial fake false fame familiar family famine fantasy reassure government rebellion recede receipt reception recession recipe recipient reciprocal recite orient sob sober software soil sole solemn solid solidarity solo somewhat city hijack hike hinge hip hire historian historical insert inside insight insist inspect inspiration inspire lick lid lie lifetime lift merchandise merchant mercury mercy merge merry metal metaphor metric metropolitan none nonsense oral orbit orderly ordinary oriental orientation pope popular porcelain portable porter portfolio portrait portray post postage poster postpone posture renew renovate rent repair repay repeat repeatedly repel repertoire repetition tire blade blame blast blaze tissue toil hook hop horn horrible horror horsepower hose instruct arrives instruction instrument instrumental insulate insult liquor litter miracle mirror mischief misfortune miss missile missing mission missionary nuclear nucleus preclude predominant pregnant rest restless spray sgueeze sprinkle square stab stack stagger stagnant stagnate trade trademark around arrange arrest arrival arrive arrogant arrow conscience conscientious consecutive consensus consent traffic conspicuous conspiracy consult consultant wipe wire wise witch withhold within detective detector snap snatch sneak sneeze sniff snobbish deviate devil devote fix fixture flame flap flare flash flat any anybody anyhow anything anyway anywhere asset flatter flee flesh flight assign assignment bibliography bin bind biography biology bit bite bitter bizarre coherent cohesive coin coke collaborate collar colonel colonial colony combination enthusiasm enthusiastic entire entitle entity entrance entrepreneur entry whale beach hotel thicker whatever whereas whereby wherever whichever while whistle whoever bloom blossom blow blueprint blunder blunt blur blush pray prayer resemblance resemble reservoir residence resident resign resolute resolution resolve specimen spectacle spectator spectrum sphere spicy spill spine spiral spirit spiritual spit spite splash splendid split spontaneous spot spouse timely timid tin tiny tower toxic wicked width arm army congratulate congratulation conjunction conquer conquest disaster disastrous discard discern wild wind wink discharge era eradicate erase erect erode erosion erroneous error erupt escalate escort focus fog nourish novel novelty nowadays nowhere shore apartment ape apology bleed blend bless comfort comedy comet comic commemorate commence commonplace commute diabetes diagnose diagram dial dialect diameter dictate idea dictation diet differentiate dig digest digital dignity envy equal equality equation equivalent equator float flock flood flow fluctuate fluent fluid flush fly microphone microscope midst migrate mild mill millionaire nostalgic notable nothing notice notify notorious ornament orthodox pot pound powder represent representative repression reproach darkness reproduce republic republican so-called sore sorrow space spacious spark sparkle died tide tidy tight tilt weekday weekly ancestor ancient anecdote angel anger angry ankle handsome weed weep well-known wet antenna antique bet betray better between beware bewilder beyond cloth clothe clothes clothing cloudy clue clumsy cluster clutch despair desperate destination destiny destruction destructive engine engineer engineering enormous enrich final finally fine finish fire fireman fireplace fiscal fish fisherman inner innumerable input lecture legacy legend lend lens lest poke polar pole greedy green greenhouse greet greeting pollute pollution pool remark remarkable beast blind block blood bloody tomb tongue tool top torch torment torrent torture whole wholesome wholly apparatus appendix appetite applaud applause appraisal approximate arbitrary arch body compact companion published compartment compass compassion compatible composite compound compulsory compute conceal concede concert concession da'rektorin dilemma diligent dine dinosaur dip diploma diplomatic direction director equip equipment equity groan grocer grope hobby homogeneous honest installation instance instant instantaneous limp linear linen liner linger linguistic mine mineral mingle miniature minimum minister ministry minor minority minus minute ash ashamed aspect aspire lumber lump lunar bracket brake brass brave cosmic cost costume couch count counter lung luxury lyric affairs counterpart country countryside county excitement exclaim excursion exempt exercise foremost forgive forth forthcoming mistake dock doctrine donate dose fortnight hospitality host hostage hostess hostile hound hover howl father hospital intimate intimidate intricate intrigue intrinsic intuition invade invaluable invasion proficiency profile rip ripe ritual motion motivate motive motor mount roar roast rob robust rock rod stiff still sting bounce bound boundary romance romantic ascend ascertain ascribe cool trash travel wooden worker workout workshop cooperate coordinate cope copper copy copyright cord cordial core corn coronavirus correct correlate anticipation correspondence correspondent corrode corrupt dive divine divorce dizzy evoke exact exceed exceedingly excel except exception exceptional excerpt excess gum gun gut interrupt intersection interval loyal loyalty lubricate luck lucky moist moisture molecule momentum monarch monetary monitor pollen white monster monument priest probability probable stoop storm strand strange stranger straw cinema streamline trial triangle tribe tribute trick trifle trim breast breath breathe worldwide worm worry worse wrap wreck breeze bribe bridge bright brilliant bring couple coupon courage course cow coward down downtown downward doze drag dragon drain drastic draw arriving drawback drawer exhibit exhibition exile exit forum forward foster foul foundation fountain fraction fracture fragile fragment fragrant mortal mortgage art boot booth boss botany bottom artery article articulate artificial artist artistic disrupt dissipate distant distillvdistil distress district disturb disturbance eve even event eventually ever forbid forehead foreign foreigner look loom loop loose loosen lord lottery moan mob mobile module pretext pretty prevail prevalent rhetoric rhythm rib ribbon riddle ridge ridiculous rigid rigorous station stationary stationery steak steam steep intact interface interfere intervene steward transcend transistor transit transition translate transparent contemplate contrive convenience convenient conversation conversion convert convict conviction convince lively liver living loaf loan lobby lodge discount discourage discreet discrepancy discrete discretion disguise disgust dislike lofty log long longitude again disposal dispose disposition estate esteem eternal evacuate evade evaporate fond fool foolish job footstep mist mistress misunderstand nuisance numb numerical numerous nursery nurture nut nutrition ought outbreak outdoor outing outskirts outstanding retail retain retention retire retort retrieve retrospect revolt revolution oxygen revolve stake stale stalk stall stamp staple stare tragedy tragic bow bowl boycott contact contagious contain contaminate contingent tram bump burn burst bury crime criminal cripple crisp criterion crop cross crow crown exterior external extra extract extraordinary friendly friendship fright frighten fringe frontier frost frown fry fuel fume funeral humid humidity them hunt hurl hygiene hypocrisy hypothesis hysterical invent invention inventory inverse invert invitation inward remarks oval overflow overhaul overhead overnight overt overtake overthrow overtime prone pronounce propaganda propagate prophet roof rope rot rotate rotten rough round roundabout rouse suite sum summary summit summon sunrise sunset sunshine auction audience audio audit explanation hug huge hum aural authentic broad bruise brush brutal bud buffer buffet bug night sellers crack cradle craft crash crawl crazy cream creature credentials creep crew draft dread dress drift drill drip drop drought drown drum expedition expel expend expenditure expense explicit explode explosion explosive frame framework franchise frank fraud freelance freight frequency frequent fresh friction strife strip stripe strive stroke struggle stroll strong stubborn studio stuff stumble sturdy style submarine submerge sudden prosecute tug tune turkey turmoil tutor autonomy avenue avert await awe awful bulk bully button bypass crude cruel cruise crush crust crystal dull flowers dumb dump duplicate dusk dwarf dwell dye dynasty fur furnish further furthermore fuse fuss futile iron irony irrespective irrigate irritate isle isolate ivory musical musician mute mutter owe owing owner ownership ozone prosper prosperity prosperous protect protein protest province provision provoke civilization royal royalty rub rubber rude ruin supersonic superstition surrender surround cube cue curb cure curl cycle cylinder punctual curse curve custom cyberspace surface surge surgeon surgery swallow swamp sway sweat sweep swift much mud symmetry sympathetic sympathy symphony symposium symptom syndrome synthesis synthetic mug multiple multiply multitude municipal murder murmur muscle muscular puff pull pulse punch punish puppet pure purify purpose purse ran rural rush rust attendant attorney attract attractive bunch bundle burden bureau bureaucracy burglar ruthless troop tropic tropical troublesome true trust trunk tube tuck twin twinkle wrench wrinkle wrist about accustom acre actor actress adjective administer afraid after aftermath afternoon agent ago agree agriculture air albeit album alcohol almost aloud already also always ambulance animal another ant april arithmetic aside ask astronaut astronomy athlete atom aviation away bacon bag balcony balloon banana bank barber baseball basin basket basketball bat bathroom be bean beautiful because bed bee beef beer bell best beverage bible big bird birthday biscuit black blackboard blog blouse blue boil borrow both bowling box boy brandy breakfast brick bride briefcase brochure broker bronze broom brow brown bucket bulb bull bullet bulletin bus bush busy butcher butter butterfly buy cabbage cabin cafeteria cage cake calcium camera canal candle candy cannon canoe canteen canvas cap capsule car card care carpenter carpet cart cartoon cassette castle cathedral catholic cattle cave cellar cemetery chalk cheap cheek cheese chef chemist chemistry cherry chess chicken chimney chin china chocolate choir christian christmas cigar circus classmate claw clay clean clergy clerk clever cliff clinic club coal coast coat cocaine cock coffee coil cold college collision comb comrade continent cook cop corner corridor costly cottage cotton cough could courtyard cousin crab crane cricket cry cucumber cupboard curtain cushion custody customer dairy dam danger dangerous dare dark darling dear death december deep dental dessert destroy dew dialog diamond diary dictionary die different difficult difficulty dinner direct directly dirt ditch dome donkey doorway dove downstairs dozen dream drunk during dust dwelling eagle earthquake easter eclipse elder electricity electron electronic else embassy emperor ending enemy enjoy enough enter envelope excellent excessive excite exciting expensive explain eyebrow eyesight fairy famous far farm farmer festival few finger fist flag fleet floor flour flower forest forever forget fork fossil found fox front full fun furious furnace furniture gadget gallon garden garlic garment gate genetic gentleman glass glove god golf goodness grammar guess guest guitar gulf guy handkerchief harness hate headache headmaster hen hide high historic history hole home honey hopeful hot housewife housework hungry hurry hurt hut hybrid hydrogen ice-cream icon idiot inch inn insect instead interesting invite adj jar jazz join joke joy jug just keep kettle kindergarten knock ladder lamp land landlady landlord landscape laptop latin lavatory lawn lawyer layoff lemon length let liberty librarian lip literacy living-room load lock locker lonely lounge lovely lover luggage lure magazine mail mammal manager masculine mathematics meadow meal melon menu middle more mosquito mouse movement movie museum mushroom napkin neck neighbo neither nephew nickel niece nitrogen nobody nod noisy nor northwest nose noun nurse nylon oak ocean offensive oil onion orchard orchestra ore orphan ounce oven pron overcoat owl oxide packet painting palace pan pants party passenger pasture patient paw pea peace peach peanut peasant pebble pendulum pepper perhaps person pet physicist physics physiology pick piece pigeon pillow pine pink pity plaintiff plan plane pleasant plenty poem poet poetry pond porch pork port postcard pottery poultry powerful predator prefer prepare preposition president pretend price prince princess print prison prisoner professor projector pronoun pronunciation prose pub pupil purple pyramid queen quilt rabbit radar rainbow rat rather razor real really record rectangle regret reptile return rifle ring robe rocket rose rug sale salient salt sand scissors search seat seed seldom sex shell short shout shrug sibling silk slave slow smoke snack soap soccer soda sofa soft soldier solitary soon sophomore southeast southwest spade speaker spear spectacular speech speed spider sponge spoon squirrel stadium stair staircase stairway stereo stocking stomach stone stool stor stove strawberry strict stupid subsidy suburb sugar sure swan sweater sword table tail task team temperament tent test testimony textbook thief throat thus tile till timber tobacco toe toilet tooth tour tourist towel town toy tractor tray trousers truck trumpet truth tub tumo typewriter typist typhoon until upon used valley vase vegetable venue verb victory vigorous visa visit visitor vitamin vocabulary volt voltage wait waiter waitress wall wallet warm wary watt wedding west western wheat wheel whether wide widow willing wing wool worst youngster creativity curriculum enrollment non-intrusive predominance predominantly promote relevance reproducible self-contentedness weaken", "3": "abbreviation abdicate absolutist academia accessibility acclimation accountability accrue accusation ace admirable adorn adornment adversarial advisory afloat aggressiveness agile airborne airflow airy akin alarmingly allay allegation allot allude altruistic amass anachronism analyst ancestry animation antagonistic aphid appease applicant arable arbiter archaeological archaeologist aristocratic arrestee artwork asocial assertion assuage asteroid asthma astounding attentive attest attuned authenticate autobiography automate avalanche avant-garde averse aversion backdrop backlog backyard baluster bandwidth banking beacon beautify beforehand befriend behavioral benefactor biased billboard biographer biological biologist biomedical biophilia biotech biotic birthright bisect bison blacksmith blessing bloodstream bodily bombast booby boon bourgeois brainstorm branding breadth breakthrough brim broadband broaden broadway broccoli brook buck buddhist bullock burdensome bust buzzword by-product canon caravan caregiver cascade cautiousness caveat cellphone celluloid ceremonial chapel chariot chatter childless chiller choosy chronicle chunky citizenship claimant clear-cut clout coax codify coercive coexistence collaborative commitment commonality comparatively competence composer composure conceited conceivably concur confidant conglomerate congressional conspire constable constancy constantly co-worker constitutional constitutionality constraint contention continually continuity contributory copious corruption cosmos counteract counterbalance countermeasure courageous courtship craze credible creek criss-cross critique crumble crux cubicle culinary cultural curate cure-all cursory cute cutlery cynic dampen dazzlingly dearth deception decimation declaim decoration deep-seated defame defensible degrade demolition demonstration demoralization dependency depredation designer detrimental diagonal diligence dimensional diplomacy dire disbelief discontinue dishono disinfect dismal disparity disposable disregard disruptive dissatisfaction diversity doctoral dominance dormant double-glaze doubtless download downtime downturn idefiance drainage dramatically drawn-out dropout dub dungeon duo eagerness economist ecosystem educator efficacy electronics elevation elitism elusive embodiment emissary emission emitter enact enchantingly endanger engender engrave enigma enrage entourage enviable envision ephemera errand ethical ethnicity ethos'ixops everlasting exacerbate excavation exclusionary exemplary expectancy explicatory exploration extracurricular extraordinarily facial factoid fad fairness falsehood farcical fearsome fend feverish fieldcraft filing fitness fixation fizzle flagship flexibility flip fluster flutter foe folklore forefather foresight forthright freshman fritillary frizzle frugal fully funding furlough futurologist gape generative genetically geneticist genome geographic gig glowingly gospel'gpspl granite granny grapple grassland grassroots gratification greengrocer grievance groom groundbreaking groundless guardianship habitually hack halve hamlet hardline hasten havoc haystack haze headhunter hearty heatstroke heavily herbivore heresy heretic hierarchical high-profile hindrance hoard holistic home-grown homeless hominid hooray horrify horticultural hub hunch hunter hurdle husbandry idealism illiberal immigration immoral impel impend impinge implausible implore impossibility impractical imprison improper inaccurate inadequacy inarticulate inborn incite inclement inclination incompatible incompetent incomplete inconclusive incorrectly indefensible indefinitely indicator indictment indifference indirect ileverage induct industrialization inedible ineffective inefficient inescapably inevitably inexorable inexpressible infancy inferiority infirm inflate info informal informality infuse ingenuity inherently inherited inhuman initiation initiator injurious innate innermost innovative innovator inquisitive insatiable insensitive insidious insightful insignificant insistence inspection instantaneously institutional insufficient intake integration intellect intensely intentionally intently interactive interdependence intermarriage interpersonal interpretation interprovincial interviewee interviewer introductory intrusion intuitively invalidate inventiveness inventor investor involuntarily ironically irregular irrepressible irrigation jobseeker jokingly journalistic judiciary juggle keyword kinship know-it-all knuckle laminated lancet languid lawmaker leftover legislature lender leniency lenient lifelike lifestyle light-hearted limbic lineage linguist lining listener literate liveliness livestock lockout loft logo longline longstanding low-cost low-density low-level makeshift male-dominated malpractice manifesto markedly marketplace marquetry marsh marshal matchmaker materialism materialistic maternal maturity meaningful meaningless'mininlas measurable mechanistic meddle medication mediocrity mediterranean megalith mentally mercilessly meritocracy metallurgy metaphysical meteorological meteorologist methodology microbiologist migration mildly milestone militantly millennial millennium mindlessly mindset miniaturization minimal minimalist mining mischievous misconception misguide misinterpret misinterpretation misuse mitigate mobility modesty mogul molecular momentarily monoglot morphine mortality mouthpiece mow multinational multiplicity mundane mutability mutually mythical narrowly nasal nationwide native-born naturalist nautical neatly necessarily needlessly needy negligence neolithic netball neural neurology neuroscientist newsprint newsroom newsstand niche nobility noisily non-materialistic non-standard nonconformist nonverbal notably noteworthy notification nova nuance nudge objectionable obscene observable observer obsess obtainable oceanic oceanographer off-the-cuff offline omission omnivore oncogene one-shot ongoing online onward open-access openly opposition oppression orb orchestral ornate ostrich out-of-town outcry outdate outlive outsize outsource outweigh over-the-counter overblown overdue overestimate overly overrule oversize overstate overstep overvalue overview overwhelmingly overwork oxytocin palpable pandemic paradoxically paramount parenting parity partisan passivate pastel patchwork paternal pathway paycheck peacock pedagogy peer-reviewed penalize perceptive perceptual performative periodically permissive pernicious perpetuate persistence persistent persuasive pervasive pesticide petal pharaoh pharmaceutical philosophical phon phrasing physically physique piecemeal pinpoint pivot playwright pluck plum plummet ply poach pollinate polymer populous potash powerless practicality predatory predictably prefrontal preoccupation presumptuous presuppose prevention prewar priestly primarily printer processor proclivity procreation professorship proficient progression proliferate promoter pronouncement proportionality protection provincial provocative proxy prudery psychedelic psychoactive psychological psychologist pumpkin punctuation puritan purport pushback questionable quick-witted raisin ramble rarity rasher re-evaluate reactor reaffirm realtor recitation recruiter redefine redirect redundancy redwood refutation regain relatively relic remorseless renege renowned reorder repercussion replicate representational reproductive restoration restrictive retrofit revision revival richness righteous robotic robotics rogue rosy rotunda rubble rustle rut sage saline schism scholastic schooling scoop scrub sea-pink searing seasonal secular sedition self-help self-interested sensational sensitivity sensor sensory sensual sermon sexual shin isustainable shipload shipwreck short-termism shortcut showcase shroud sift sighted silt simmer simplification simulation sinister skint skipper skittish skylight sling slipup sludge sluggish snapshot sneaker sojourn solitude sonar sonata spam sparrow spatial specifically speculative spent spike spontaneity spotlight spree springtime stakeholder standing standstill starry stash state-of-the-art statistically steadfast stew stickiness stockpile storehouse straddle strategic stray strikingly stringent structural stuck studiously stylish stylist subconscious subhead submission suboptimal subsequently substantially substantiate subtitle suburban succumb suddenly suitability surgical surprisingly suspiciously swine swollen symbolic tagline talkative tamper taxation taxpayer tempest template terrain textual thermostat think-tank thoughtless thriller timeless timescale timidity titanic toddler toll-free tort tournament townsfolk traceable trajectory tramp transcendentalist transcribe travail traverse tribal trickle troublemaker troupe trustworthiness tsunami turnaround ultimately unaccountably unacknowledged unaffordable unatractive unbearably unbiased uncanny uncertain uncharted unconventional uncool undercut underscore undesirable undue uneconomic uneven unfairness unfamiliar unfashionable unfavo unfeasible unfocus unification uniformly unilateral unimaginable unintentional universality unjust unknowable unlearned unleash unnatural unprecedented iwarrior unpredictable unpretentious unrealistic unreasonable unrelated unrepresentative unseat unsettle unsurprisingly untested unwieldy upcoming upfront upheaval upholster upkeep uplifting upload upscale upside upstart usher utopia vault vitality volcanic wade walkway'woikwe ware watershed well-being whirlwind wholesale wilderness wildlife woodcut woodland wordy workforce workload workplace worrisome wreak wrongdoing yearning"};
+
+var LEVEL_OF = {};
+(function(){
+  for (var k in LVL){
+    var arr = LVL[k].split(' ');
+    for (var i = 0; i < arr.length; i++) if (arr[i]) LEVEL_OF[arr[i]] = +k;
+  }
+})();
+
+var LEVEL_INFO = {
+  1: { name: '必考词', short: '必考', cls: 'lv1' },
+  2: { name: '基础词', short: '基础', cls: 'lv2' },
+  3: { name: '超纲词', short: '超纲', cls: 'lv3' },
+  4: { name: '词表外', short: '词表外', cls: 'lv4' }
+};
+
+var STEM_RULES = [
+  [/ies$/, 'y'], [/ied$/, 'y'], [/ying$/, 'ie'], [/ing$/, ''], [/ing$/, 'e'],
+  [/ed$/, ''], [/ed$/, 'e'], [/es$/, ''], [/s$/, ''], [/ily$/, 'y'], [/ly$/, ''],
+  [/ment$/, ''], [/ness$/, ''], [/tion$/, 'te'], [/tion$/, ''], [/sion$/, ''],
+  [/ity$/, 'e'], [/ity$/, ''], [/ical$/, 'ic'], [/al$/, ''], [/ive$/, ''], [/ive$/, 'e'],
+  [/ous$/, ''], [/er$/, ''], [/est$/, ''], [/ize$/, ''], [/ise$/, ''], [/able$/, ''], [/ible$/, '']
+];
+
+function stemWords(w){
+  var out = [w];
+  for (var i = 0; i < STEM_RULES.length; i++){
+    var base = w.replace(STEM_RULES[i][0], STEM_RULES[i][1]);
+    if (base && base !== w && base.length >= 3 && out.indexOf(base) < 0) out.push(base);
+  }
+  var dbl = w.match(/^(.+?)([bcdfghjklmnpqrstvwxz])\2(ed|ing)$/);
+  if (dbl && out.indexOf(dbl[1] + dbl[2]) < 0) out.push(dbl[1] + dbl[2]);
+  return out;
+}
+
+function levelOfToken(t){
+  if (LEVEL_OF[t]) return LEVEL_OF[t];
+  var cands = stemWords(t), best = 5;
+  for (var i = 0; i < cands.length; i++){
+    var L = LEVEL_OF[cands[i]];
+    if (L && L < best) best = L;
+  }
+  return best;
+}
+
+// 1 必考词 / 2 基础词 / 3 超纲词 / 4 词表外
+function levelOf(en){
+  var k = String(en || '').toLowerCase().replace(/[^a-z'\- ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!k) return 4;
+  if (LEVEL_OF[k]) return LEVEL_OF[k];
+  var toks = k.split(' '), best = 5;
+  for (var i = 0; i < toks.length; i++){
+    if (!toks[i]) continue;
+    var L = levelOfToken(toks[i]);
+    if (L < best) best = L;
+  }
+  return best === 5 ? 4 : best;
+}
+
+function lvInfo(level){
+  return LEVEL_INFO[level] || LEVEL_INFO[4];
+}
+function lvTagHTML(level){
+  var i = lvInfo(level);
+  return '<span class="lvtag ' + i.cls + '">' + i.short + '</span>';
+}
+
+/* ================= 数据 ================= */
+var db = load();
+
+function normWord(w){
+  return {
+    id: w && w.id ? String(w.id) : uid(),
+    en: String((w && w.en) || '').replace(/\s+/g, ' ').trim(),
+    zh: String((w && w.zh) || '').trim(),
+    created: +(w && w.created) || Date.now(),
+    due: (w && typeof w.due === 'number') ? w.due : 0,
+    stage: Math.max(0, Math.min(MAXSTAGE, (w && +w.stage) || 0)),
+    reps: Math.max(0, (w && +w.reps) || 0),
+    wrong: Math.max(0, (w && +w.wrong) || 0),
+    last: (w && +w.last) || 0,
+    level: ((w && +w.level) >= 1 && (w && +w.level) <= 4) ? +w.level : levelOf(w && w.en)
+  };
+}
+
+function load(){
+  var d = null;
+  try { d = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ d = null; }
+  if (!d || typeof d !== 'object' || !Array.isArray(d.words)) d = { words: [], daily: {} };
+  if (!d.daily || typeof d.daily !== 'object') d.daily = {};
+  if (!d.settings || typeof d.settings !== 'object') d.settings = {};
+  if (d.settings.scope !== 'core') d.settings.scope = 'all';
+  d.words = d.words.map(normWord).filter(function(w){ return w.en; });
+  return d;
+}
+
+function save(){
+  try {
+    localStorage.setItem(KEY, JSON.stringify(db));
+    return true;
+  } catch(e){
+    toast('保存失败：浏览器存储空间已满');
+    return false;
+  }
+}
+
+function dailyToday(){
+  var k = dayKey();
+  if (!db.daily[k]) db.daily[k] = { reviews: 0, wrong: 0 };
+  return db.daily[k];
+}
+function todayAdded(){
+  var k = dayKey();
+  return db.words.filter(function(w){ return dayKey(w.created) === k; }).length;
+}
+function dueCount(){
+  return dueWords().length;
+}
+function findById(id){
+  for (var i = 0; i < db.words.length; i++) if (db.words[i].id === id) return db.words[i];
+  return null;
+}
+
+/* ================= 业务逻辑 ================= */
+function addWord(en, zh, opt){
+  en = String(en || '').replace(/\s+/g, ' ').trim();
+  zh = String(zh || '').replace(/\s+/g, ' ').trim();
+  if (!en) return { ok: false, reason: 'empty' };
+
+  var exist = null;
+  for (var i = 0; i < db.words.length; i++){
+    if (db.words[i].en.toLowerCase() === en.toLowerCase()) { exist = db.words[i]; break; }
+  }
+  if (exist){
+    if (opt && opt.update && zh && exist.zh !== zh){
+      exist.zh = zh;
+      return { ok: false, reason: 'updated', word: exist };
+    }
+    return { ok: false, reason: 'dup', word: exist };
+  }
+
+  var now = Date.now();
+  var w = { id: uid(), en: en, zh: zh, created: now, due: now, stage: 0, reps: 0, wrong: 0, last: 0, level: levelOf(en) };
+  db.words.push(w);
+  return { ok: true, word: w };
+}
+
+function gradeWord(w, g){
+  var now = Date.now();
+  w.reps += 1;
+  w.last = now;
+  var d = dailyToday();
+  d.reviews += 1;
+
+  if (g === 'again'){
+    w.wrong += 1;
+    d.wrong += 1;
+    w.stage = 0;
+    w.due = now + 10 * 60000;          // 10 分钟后再来
+  } else if (g === 'hard'){
+    var cur = STEPS[w.stage];
+    w.due = now + (w.stage === 0 ? 30 * 60000 : Math.max(6 * 3600000, cur * DAY / 2));
+  } else {
+    w.stage = Math.min(MAXSTAGE, w.stage + 1);
+    w.due = now + Math.max(STEPS[w.stage] * DAY, DAY);
+  }
+  save();
+}
+
+function dueLabel(w){
+  var now = Date.now();
+  if (w.due <= now) return '待复习';
+  var diff = w.due - now;
+  if (diff < 3600000) return Math.round(diff / 60000) + '分钟后';
+  if (diff < 20 * 3600000) return Math.round(diff / 3600000) + '小时后';
+  return Math.round(diff / DAY) + '天后';
+}
+function stageLabel(stage){
+  if (stage <= 0) return '新词';
+  if (stage <= 2) return '学习中';
+  if (stage <= 5) return '较熟悉';
+  return '牢记';
+}
+
+/* ================= 提示 ================= */
+var toastTimer = null;
+function toast(msg){
+  var el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 1700);
+}
+
+/* ================= 视图切换 ================= */
+var currentView = 'review';
+
+function show(name){
+  $$('.view').forEach(function(v){ v.classList.toggle('active', v.id === 'view-' + name); });
+  $$('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.view === name); });
+  currentView = name;
+
+  if (name !== 'add'){
+    var a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) a.blur();
+  }
+  if (name === 'review'){
+    if (!queue.length) resetSession();
+    renderReview();
+  } else if (name === 'add'){
+    refreshAddHint();
+    setTimeout(function(){ if (currentView === 'add') $('#inEn').focus(); }, 90);
+  } else if (name === 'list'){
+    renderList();
+  } else if (name === 'stats'){
+    renderStats();
+  }
+  refreshCounts();
+  $('#main').scrollTop = 0;
+}
+
+/* ================= 复习 ================= */
+var queue = [];
+var sessionTotal = 0;
+var flipped = false;
+var busy = false;
+
+function dueWords(){
+  var now = Date.now();
+  var core = db.settings.scope === 'core';
+  return db.words.filter(function(w){
+    return w.due <= now && (!core || w.level <= 2);
+  }).sort(function(a, b){
+    return a.level - b.level || a.due - b.due || a.created - b.created;
+  });
+}
+function resetSession(){
+  queue = dueWords().map(function(w){ return w.id; });
+  sessionTotal = queue.length;
+  flipped = false;
+}
+function currentWord(){
+  while (queue.length){
+    var w = findById(queue[0]);
+    if (w) return w;
+    queue.shift();
+  }
+  return null;
+}
+
+function paintDone(){
+  var hidden = 0;
+  if (db.settings.scope === 'core'){
+    var now = Date.now();
+    hidden = db.words.filter(function(w){ return w.due <= now && w.level > 2; }).length;
+  }
+  if (!db.words.length){
+    $('#doneIcon').textContent = '书';
+    $('#doneTitle').textContent = '生词本还是空的';
+    $('#doneSub').textContent = '把今天真题里不会的词记进来，之后按遗忘曲线提醒你复习';
+  } else {
+    $('#doneIcon').textContent = '✓';
+    $('#doneTitle').textContent = db.settings.scope === 'core' ? '重点词都复习完了' : '今天没有要复习的词了';
+    $('#doneSub').textContent = '今日新增 ' + todayAdded() + ' 个 · 今日已复习 ' + dailyToday().reviews + ' 次' +
+      (hidden ? ' · 另有 ' + hidden + ' 个超纲/词表外的词已隐藏' : '');
+  }
+}
+
+function renderReview(){
+  var w = currentWord();
+  var box = $('#reviewCard'), done = $('#reviewDone');
+
+  if (!w){
+    box.classList.add('hidden');
+    done.classList.remove('hidden');
+    paintDone();
+    sessionTotal = 0;
+    return;
+  }
+
+  done.classList.add('hidden');
+  box.classList.remove('hidden');
+
+  var enEl = $('#cEn');
+  enEl.textContent = w.en;
+  enEl.classList.toggle('sm', w.en.length > 16);
+
+  var lv = lvInfo(w.level);
+  var lvEl = $('#cLv');
+  lvEl.className = 'lvtag ' + lv.cls;
+  lvEl.textContent = lv.name;
+  $('#cardMeta').setAttribute('data-lv', w.level);
+  $('#cZh').textContent = w.zh || '（还没写释义，点右上角生词本补充）';
+  $('#cEn2').textContent = w.en;
+
+  $('#rcLeft').textContent = '剩余 ' + queue.length;
+  var doneN = Math.max(0, sessionTotal - queue.length);
+  $('#rcDone').textContent = doneN + ' / ' + sessionTotal;
+  $('#progFill').style.width = (sessionTotal ? doneN / sessionTotal * 100 : 0) + '%';
+
+  var meta = '已复习 ' + w.reps + ' 次';
+  if (w.wrong) meta += ' · 错误 ' + w.wrong + ' 次';
+  meta += ' · ' + stageLabel(w.stage);
+  $('#cardMeta').textContent = meta;
+
+  flipped = false;
+  $('#card').classList.remove('flipped');
+  $('#grades').classList.remove('show');
+}
+
+function toggleFlip(){
+  if (busy) return;
+  if (!currentWord()) return;
+  flipped = !flipped;
+  $('#card').classList.toggle('flipped', flipped);
+  $('#grades').classList.toggle('show', flipped);
+}
+
+function doGrade(g){
+  if (busy) return;
+  var w = currentWord();
+  if (!w) return;
+
+  busy = true;
+  gradeWord(w, g);
+
+  var wrap = $('#cardwrap');
+  wrap.classList.add('out');
+
+  setTimeout(function(){
+    queue.shift();
+    wrap.classList.remove('out');
+    renderReview();
+    refreshCounts();
+    busy = false;
+    if (g === 'again') toast('10 分钟后再来一次');
+    else toast('下次复习：' + dueLabel(w));
+  }, 165);
+}
+
+/* ================= 添加 ================= */
+function refreshAddHint(){
+  $('#addToday').textContent = todayAdded();
+}
+
+function setHint(msg, isErr){
+  var el = $('#addHint');
+  el.textContent = msg || '';
+  el.classList.toggle('err', !!isErr);
+}
+
+var CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
+function parseLine(raw){
+  var s = String(raw || '').replace(/\u00a0/g, ' ').replace(/\s+$/, '').trim();
+  if (!s || s.charAt(0) === '#') return null;
+  s = s.replace(/^\d+\s*[.、)．]\s*/, '');
+
+  var tab = s.split('\t').map(function(x){ return x.trim(); }).filter(Boolean);
+  if (tab.length >= 2) return { en: tab[0], zh: tab.slice(1).join('；') };
+
+  var i = s.search(CJK);
+  if (i > 0){
+    var en = s.slice(0, i).trim().replace(/[,，;；:：\-—–=_.、。]+$/, '').trim();
+    var zh = s.slice(i).trim();
+    if (en && zh) return { en: en, zh: zh };
+  }
+
+  var m = s.match(/^([A-Za-z][A-Za-z0-9\s'’.\-\/()]*?)\s*(?:[-=:：—–]|\s{2,})\s*(.+)$/);
+  if (m) return { en: m[1].trim(), zh: m[2].trim() };
+
+  return { en: s, zh: '' };
+}
+
+/* ================= 生词本列表 ================= */
+var sortMode = 'new';
+
+function renderList(){
+  var q = $('#q').value.trim().toLowerCase();
+  var arr = db.words.slice();
+
+  if (q){
+    arr = arr.filter(function(w){
+      return w.en.toLowerCase().indexOf(q) >= 0 || w.zh.toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  if (sortMode === 'new') arr.sort(function(a, b){ return b.created - a.created; });
+  else if (sortMode === 'level') arr.sort(function(a, b){ return a.level - b.level || b.created - a.created; });
+  else if (sortMode === 'wrong') arr.sort(function(a, b){ return b.wrong - a.wrong || b.reps - a.reps; });
+  else if (sortMode === 'due') arr.sort(function(a, b){ return a.due - b.due; });
+  else if (sortMode === 'az') arr.sort(function(a, b){ return a.en.toLowerCase() < b.en.toLowerCase() ? -1 : 1; });
+
+  $('#listCount').textContent = arr.length + (q ? ' 个结果' : ' 个词');
+  $('#listTop').textContent = db.words.length + ' 个词 · 待复习 ' + dueCount();
+
+  var now = Date.now();
+  var html = arr.map(function(w){
+    var due = w.due <= now;
+    return '<button class="wrow" data-id="' + w.id + '">' +
+      '<div class="wmain"><div class="wen">' + esc(w.en) + '</div>' +
+      '<div class="wzh">' + lvTagHTML(w.level) + esc(w.zh || '—') + '</div></div>' +
+      '<div class="wmeta">' +
+        (w.wrong ? '<span class="chip red">错 ' + w.wrong + '</span>' : '') +
+        '<span class="chip' + (due ? ' due' : '') + '">' + dueLabel(w) + '</span>' +
+      '</div></button>';
+  }).join('');
+
+  $('#wordList').innerHTML = html || '<div class="empty2">' + (q ? '没有匹配的词' : '还没有生词，去「添加」页记下今天的错词吧') + '</div>';
+}
+
+/* ================= 编辑弹层 ================= */
+var editingId = null;
+
+function openEditor(id){
+  var w = findById(id);
+  if (!w) return;
+  editingId = id;
+  $('#edEn').value = w.en;
+  $('#edZh').value = w.zh;
+  $('#edMeta').textContent = '复习 ' + w.reps + ' 次 · 错 ' + w.wrong + ' 次 · ' + stageLabel(w.stage);
+  $('#sheetMask').classList.add('on');
+  document.body.classList.add('lock');
+  setTimeout(function(){ $('#edEn').focus(); }, 120);
+}
+function closeEditor(){
+  $('#sheetMask').classList.remove('on');
+  document.body.classList.remove('lock');
+  editingId = null;
+}
+
+/* ================= 统计 ================= */
+function renderStats(){
+  var total = db.words.length, reps = 0, wrongs = 0;
+  db.words.forEach(function(w){ reps += w.reps; wrongs += w.wrong; });
+
+  $('#stTotal').textContent = total;
+  $('#stDue').textContent = dueCount();
+  $('#stToday').textContent = todayAdded();
+  $('#stReps').textContent = reps;
+  $('#stWrong').textContent = wrongs;
+  $('#stAcc').textContent = reps ? Math.round((1 - wrongs / reps) * 100) + '%' : '—';
+
+  var counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  db.words.forEach(function(w){ counts[w.level] = (counts[w.level] || 0) + 1; });
+  $('#lvRow').innerHTML = [1, 2, 3, 4].map(function(l){
+    return '<span class="lvtag ' + LEVEL_INFO[l].cls + '">' + LEVEL_INFO[l].name + ' ' + counts[l] + '</span>';
+  }).join('');
+
+  var days = [];
+  for (var i = 6; i >= 0; i--){
+    var d = new Date();
+    d.setDate(d.getDate() - i);
+    var k = dayKey(d.getTime());
+    var rec = db.daily[k];
+    days.push({ v: rec ? rec.reviews : 0, short: k.slice(5) });
+  }
+  var max = Math.max.apply(null, [1].concat(days.map(function(x){ return x.v; })));
+  $('#chart').innerHTML = days.map(function(x){
+    var pct = x.v ? Math.max(8, Math.round(x.v / max * 100)) : 0;
+    return '<div class="cbar">' +
+      '<div class="cbar-in"><i class="' + (x.v ? '' : 'zero') + '" style="height:' + pct + '%"></i></div>' +
+      '<span class="cnum">' + x.v + '</span><span class="cday">' + x.short + '</span></div>';
+  }).join('');
+
+  var top = db.words.filter(function(w){ return w.wrong > 0; })
+    .sort(function(a, b){ return b.wrong - a.wrong || b.reps - a.reps; })
+    .slice(0, 12);
+
+  $('#wrongList').innerHTML = top.length ? top.map(function(w){
+    return '<div class="wrow"><div class="wmain"><div class="wen">' + esc(w.en) + '</div>' +
+      '<div class="wzh">' + esc(w.zh || '—') + '</div></div>' +
+      '<div class="wmeta"><span class="chip red">错 ' + w.wrong + ' 次</span>' +
+      '<span class="chip">复习 ' + w.reps + ' 次</span></div></div>';
+  }).join('') : '<div class="empty2">还没有错误记录</div>';
+}
+
+/* ================= 备份 ================= */
+function exportData(){
+  var text = JSON.stringify(db, null, 2);
+  var name = '生词本备份-' + dayKey() + '.json';
+  try {
+    var blob = new Blob([text], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    toast('已导出 ' + db.words.length + ' 个词');
+  } catch(e){
+    toast('导出失败，试试复制备份');
+  }
+}
+function importData(text){
+  var d;
+  try { d = JSON.parse(text); } catch(e){ toast('文件格式不正确'); return; }
+  var inc = Array.isArray(d) ? d : (d && Array.isArray(d.words) ? d.words : null);
+  if (!inc){ toast('文件里没有单词数据'); return; }
+
+  var added = 0, merged = 0;
+  inc.forEach(function(raw){
+    var w = normWord(raw);
+    if (!w.en) return;
+    var exist = null;
+    for (var i = 0; i < db.words.length; i++){
+      if (db.words[i].en.toLowerCase() === w.en.toLowerCase()) { exist = db.words[i]; break; }
+    }
+    if (!exist){
+      db.words.push(w);
+      added++;
+    } else {
+      if (w.zh) exist.zh = w.zh;
+      if (w.reps > exist.reps){
+        exist.stage = w.stage; exist.due = w.due; exist.reps = w.reps;
+        exist.wrong = w.wrong; exist.last = w.last; exist.created = w.created;
+        exist.level = w.level;
+      }
+      merged++;
+    }
+  });
+  if (d && d.daily && typeof d.daily === 'object'){
+    Object.keys(d.daily).forEach(function(k){
+      if (!db.daily[k]) db.daily[k] = d.daily[k];
+    });
+  }
+  save();
+  refreshCounts();
+  renderList();
+  renderStats();
+  if (currentView === 'review'){ resetSession(); renderReview(); }
+  toast('导入完成：新增 ' + added + '，合并 ' + merged);
+}
+
+/* ================= 计数刷新 ================= */
+function refreshCounts(){
+  var due = dueCount();
+  var badge = $('#tabBadge');
+  if (due > 0){
+    badge.textContent = due > 99 ? '99+' : due;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+  $('#reviewSub').textContent = '今日新增 ' + todayAdded() + ' · 待复习 ' + due;
+  $('#addToday').textContent = todayAdded();
+  $('#listTop').textContent = db.words.length + ' 个词 · 待复习 ' + due;
+  if (currentView === 'review' && !queue.length){
+    paintDone();
+  }
+}
+
+/* ================= 事件绑定 ================= */
+$$('.tab').forEach(function(t){
+  t.addEventListener('click', function(){ show(t.dataset.view); });
+});
+$('#goAdd').addEventListener('click', function(){ show('add'); });
+
+/* 复习：翻卡 + 评分 */
+$('#cardwrap').addEventListener('click', toggleFlip);
+$('#grades').addEventListener('click', function(e){
+  var b = e.target.closest ? e.target.closest('button[data-g]') : null;
+  if (b) doGrade(b.dataset.g);
+});
+
+/* 复习范围 */
+function applyScopeUI(){
+  var s = db.settings.scope === 'core' ? 'core' : 'all';
+  $$('#scopeSeg button').forEach(function(b){ b.classList.toggle('on', b.dataset.scope === s); });
+  $('#scopeNote').textContent = s === 'core' ? '只复习必考词和基础词' : '超纲词、词表外的词会排在最后';
+}
+$$('#scopeSeg button').forEach(function(b){
+  b.addEventListener('click', function(){
+    db.settings.scope = b.dataset.scope;
+    save();
+    applyScopeUI();
+    resetSession();
+    renderReview();
+    refreshCounts();
+  });
+});
+
+/* 添加 */
+$('#inEn').addEventListener('keydown', function(e){
+  if (e.key === 'Enter'){
+    e.preventDefault();
+    $('#inZh').focus();
+  }
+});
+
+function updateLiveLv(){
+  var el = $('#liveLv');
+  var v = $('#inEn').value.trim();
+  if (!v){ el.classList.add('hidden'); return; }
+  var info = lvInfo(levelOf(v));
+  el.className = 'lvtag ' + info.cls;
+  el.textContent = info.name;
+}
+$('#inEn').addEventListener('input', updateLiveLv);
+$('#addForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  var en = $('#inEn').value, zh = $('#inZh').value;
+
+  if (!en.trim()){ setHint('先填英文', true); $('#inEn').focus(); return; }
+  if (!zh.trim()){ setHint('再补一下中文释义', true); $('#inZh').focus(); return; }
+
+  var r = addWord(en, zh, { update: true });
+  if (r.ok){
+    save();
+    $('#inEn').value = '';
+    $('#inZh').value = '';
+    $('#inEn').focus();
+    updateLiveLv();
+    setHint('已添加 ' + r.word.en + '（' + lvInfo(r.word.level).name + '）　今天第 ' + todayAdded() + ' 个');
+    refreshCounts();
+  } else if (r.reason === 'updated'){
+    save();
+    $('#inEn').value = '';
+    $('#inZh').value = '';
+    $('#inEn').focus();
+    updateLiveLv();
+    setHint('「' + r.word.en + '」已存在，释义已更新');
+    refreshCounts();
+  } else if (r.reason === 'dup'){
+    $('#inEn').select();
+    setHint('「' + r.word.en + '」已经在生词本里了', true);
+  } else {
+    setHint('内容不能为空', true);
+  }
+});
+$('#batchToggle').addEventListener('click', function(){
+  $('#batchBox').classList.toggle('hidden');
+  if (!$('#batchBox').classList.contains('hidden')) $('#batchText').focus();
+});
+$('#batchImport').addEventListener('click', function(){
+  var lines = $('#batchText').value.split(/\r?\n/);
+  var ok = 0, dup = 0, bad = 0;
+
+  lines.forEach(function(line){
+    var p = parseLine(line);
+    if (!p) return;
+    if (!p.en || !p.zh){ bad++; return; }
+    var r = addWord(p.en, p.zh, { update: false });
+    if (r.ok) ok++;
+    else if (r.reason === 'dup') dup++;
+    else bad++;
+  });
+
+  if (ok){
+    save();
+    $('#batchText').value = '';
+    refreshCounts();
+    if (currentView === 'list') renderList();
+    refreshAddHint();
+    setHint('导入 ' + ok + ' 个' + (dup ? '，重复 ' + dup + ' 个' : '') + (bad ? '，跳过 ' + bad + ' 行' : ''));
+    toast('已添加 ' + ok + ' 个词');
+  } else if (dup){
+    setHint('这些都是已存在的词（' + dup + ' 个）', true);
+  } else {
+    setHint('没有识别到「英文 + 释义」，检查一下每行格式', true);
+  }
+});
+
+/* 生词本 */
+$('#q').addEventListener('input', renderList);
+$('#sortSel').addEventListener('change', function(){
+  sortMode = this.value;
+  renderList();
+});
+$('#wordList').addEventListener('click', function(e){
+  var row = e.target.closest ? e.target.closest('.wrow') : null;
+  if (row && row.dataset.id) openEditor(row.dataset.id);
+});
+
+/* 编辑弹层 */
+$('#sheetMask').addEventListener('click', function(e){
+  if (e.target === $('#sheetMask')) closeEditor();
+});
+$('#edClose').addEventListener('click', closeEditor);
+$('#edSave').addEventListener('click', function(){
+  var w = findById(editingId);
+  if (!w) return;
+  var en = $('#edEn').value.replace(/\s+/g, ' ').trim();
+  var zh = $('#edZh').value.replace(/\s+/g, ' ').trim();
+  if (!en){ toast('英文不能为空'); return; }
+  for (var i = 0; i < db.words.length; i++){
+    var x = db.words[i];
+    if (x.id !== w.id && x.en.toLowerCase() === en.toLowerCase()){
+      toast('已经有这个词了');
+      return;
+    }
+  }
+  w.en = en;
+  w.zh = zh;
+  w.level = levelOf(en);
+  save();
+  closeEditor();
+  renderList();
+  refreshCounts();
+  if (currentView === 'review') renderReview();
+  toast('已保存');
+});
+$('#edReset').addEventListener('click', function(){
+  var w = findById(editingId);
+  if (!w) return;
+  if (!confirm('重置「' + w.en + '」的复习进度？')) return;
+  w.stage = 0;
+  w.due = Date.now();
+  w.last = 0;
+  save();
+  closeEditor();
+  renderList();
+  refreshCounts();
+  if (currentView === 'review'){ resetSession(); renderReview(); }
+  toast('进度已重置');
+});
+$('#edDel').addEventListener('click', function(){
+  var w = findById(editingId);
+  if (!w) return;
+  if (!confirm('删除「' + w.en + '」？')) return;
+  db.words = db.words.filter(function(x){ return x.id !== w.id; });
+  var idx = queue.indexOf(w.id);
+  if (idx >= 0){ queue.splice(idx, 1); sessionTotal = Math.max(queue.length, sessionTotal - 1); }
+  save();
+  closeEditor();
+  renderList();
+  refreshCounts();
+  if (currentView === 'review') renderReview();
+  toast('已删除');
+});
+
+/* 备份 */
+$('#exp').addEventListener('click', exportData);
+$('#imp').addEventListener('click', function(){ $('#impFile').click(); });
+$('#impFile').addEventListener('change', function(){
+  var f = this.files && this.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    var text = String(reader.result || '');
+    if (confirm('导入会把备份里的词合并进来（同名单词更新释义与进度），继续？')){
+      importData(text);
+    }
+    $('#impFile').value = '';
+  };
+  reader.readAsText(f, 'utf-8');
+});
+
+/* 桌面端键盘：空格翻卡，1/2/3 评分 */
+document.addEventListener('keydown', function(e){
+  if (currentView !== 'review') return;
+  var t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  if (e.code === 'Space' || e.key === ' '){
+    e.preventDefault();
+    toggleFlip();
+  } else if (flipped && (e.key === '1' || e.key === '2' || e.key === '3')){
+    doGrade(e.key === '1' ? 'again' : e.key === '2' ? 'hard' : 'good');
+  }
+});
+
+/* ================= 启动 ================= */
+var storageOK = (function(){
+  try { localStorage.setItem('__scb_probe', '1'); localStorage.removeItem('__scb_probe'); return true; }
+  catch(e){ return false; }
+})();
+if (!storageOK){
+  var bar = document.createElement('div');
+  bar.className = 'warnbar';
+  bar.textContent = '这台浏览器不允许本地存储（可能是无痕模式）。这样添加的词关掉页面就会丢，建议换普通模式打开。';
+  $('#main').insertBefore(bar, $('#main').firstChild);
+}
+
+resetSession();
+applyScopeUI();
+renderReview();
+refreshCounts();
+
+})();
+</script>
+</body>
+</html>
