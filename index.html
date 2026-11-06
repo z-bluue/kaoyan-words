@@ -81,6 +81,7 @@ input,textarea{font:inherit;color:inherit}
 @keyframes cardin{from{opacity:0;transform:translateX(18px) scale(.98)}to{opacity:1;transform:none}}
 .card{position:relative;z-index:1;width:100%;height:100%;transition:transform .48s cubic-bezier(.35,.1,.2,1);transform-style:preserve-3d;cursor:pointer;user-select:none;-webkit-user-select:none}
 .card.flipped{transform:rotateY(180deg)}
+.card.noanim{transition:none}
 .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
   background:var(--card);border:1px solid var(--line);border-radius:22px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 22px;text-align:center;overflow:auto}
@@ -390,7 +391,7 @@ input,textarea{font:inherit;color:inherit}
 
 /* ================= 基础工具 ================= */
 var KEY = 'shengciben.v1';
-var APP_VER = '2026-11-06 02:05';
+var APP_VER = '2026-11-06 13:40';
 var DAY = 86400000;
 var STEPS = [0, 1, 2, 4, 7, 15, 30, 60, 120, 240]; // 第 n 阶段的复习间隔（天）
 var MAXSTAGE = STEPS.length - 1;
@@ -738,8 +739,13 @@ function renderReview(){
   $('#cardMeta').textContent = meta;
 
   flipped = false;
-  $('#card').classList.remove('flipped');
+  var cardEl = $('#card');
+  cardEl.classList.add('noanim');
+  cardEl.classList.remove('flipped');
   $('#grades').classList.remove('show');
+  // 强制回流：让卡片以「无动画」状态瞬间回到正面，避免新词先闪出背面释义
+  void cardEl.offsetWidth;
+  cardEl.classList.remove('noanim');
 }
 
 function toggleFlip(){
